@@ -82,7 +82,7 @@ module vlan {
 
       leaf ipsec-key {
         description "ipsec key for this VPN session.";
-        tailf:info "ipsec key";
+        tailf:info "unique ipsec key";
         type tailf:sha-256-digest-string;
         mandatory true;
       }
