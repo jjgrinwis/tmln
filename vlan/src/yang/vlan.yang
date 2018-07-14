@@ -138,6 +138,8 @@ module vlan {
           tailf:info "network in gsn";
           type inet:ip-address;
           mandatory true;
+          // must statement where we check all other servers  name != current()/../../name
+          // and make sure that every * gsn-location/network is not found
           must "count(../../../vlan[name != current()/../../name]" +
                "/gsn-locations[*][network = current()]) = 0" {
             error-message "customer gns network should be unique";
