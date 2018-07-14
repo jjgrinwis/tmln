@@ -1,0 +1,154 @@
+module vlan {
+
+  namespace "http://telindus.nl/vlan";
+  prefix vlan;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+  import tailf-common {
+    prefix tailf;
+  }
+  import tailf-ncs {
+    prefix ncs;
+  }
+
+  description
+    "TMLN VLAN service";
+
+  revision 2018-07-14 {
+      description 
+        "first TMLN VLAN service. No reactive fastmap yet so customer should still fill in APN specific ip address ranges.
+        Next release should implement reactive fastmap so these leafs can become RO and filled from script getting this
+        info from external resource";
+  }
+
+  augment /ncs:services {
+    list vlan {
+      description "this is the TMLN VLAN service";
+      tailf:info "vlan service for TMLN customers";
+
+      key name;
+      unique "vlan-id rd ipsec-endpoint client-network";
+
+      uses ncs:service-data;
+      ncs:servicepoint vlan-servicepoint;
+      
+      leaf name {
+        description "unique vlan service name.";
+        tailf:info "unique vlan service name";
+        type string {
+          length 5..20 {
+            error-message "name of vlan service should be between 5 and 20 characters long.";
+          }
+        }
+      }
+
+      leaf vlan-id {
+        description "unique vlan-id for this service";
+        tailf:info "unique vlan-id";
+        type uint16 {
+          range 100..200 {
+            error-message "vlan-id should be between 100 and 200 and unique."; 
+          }
+        }
+      }
+
+      leaf rd {
+        description 
+          "unique route distinguisher for this customer. Format will be AS:ID
+          But if we can auto generate that info, this can become RO leaf.
+          Format should be AS:ID";
+        tailf:info "unique route distingusher (rd)";
+        type string {
+          pattern '(\d{1,10}:\d{1,5})' {
+            error-message "rd should have format AS:ID";
+          }
+        }
+      }
+
+      // ro leaf candidate
+      leaf client-network {
+        description "customers /29 network. It's now IP version neutral";
+        tailf:info "unique /29 network for this customer";
+        type inet:ip-address;
+      }
+
+      leaf ipsec-endpoint {
+        description "ipsec endpoint. Also IP version neutrol so can become IPV6 in the future";
+        tailf:info "customers ipsec endpoint";
+        type inet:ip-address;
+      }
+
+      leaf ipsec-key {
+        description "ipsec key for this VPN session.";
+        tailf:info "ipsec key";
+        type tailf:sha-256-digest-string;
+        mandatory true;
+      }
+
+      leaf edge {
+        description "our edge device, should not be an APN node";
+        tailf:info "select edge device";
+        type leafref {
+          path "/ncs:devices/ncs:device/ncs:name";
+        } must "count(/ncs:devices/ncs:device-group[ncs:name='gsn'][ncs:device-name=current()]) = 0" {
+          error-message "only non apn devices can be selected";
+        }
+        mandatory true;
+      }
+
+      leaf-list radius {
+        description "select 0 or 2 pre-defined radius servers";
+        tailf:info "provide radius servers";
+        min-elements 0;
+        max-elements 2;
+
+        type enumeration {
+          enum radius01.tmnl.local;
+          enum radius02.tmlnl.local;
+        }
+      }
+
+      list gsn-locations {
+        description "customer can be connected to 1 or 3 GNS locations. Each gsn location has it's own seperate network";
+        tailf:info "gsn locations [1..3]";
+        min-elements 1;
+        max-elements 3;
+        key device;
+        unique network;
+        //unique apn-range
+
+        leaf device {
+          description "our gsn devices. Should be placed in own group within NSO to speedup lookup";
+          tailf:info "select gsn device";
+          type leafref {
+            path "/ncs:devices/ncs:device/ncs:name";
+          } must "current()=/ncs:devices/ncs:device-group[ncs:name='gsn']/ncs:device-name" {
+            error-message "only devices part of gsn group can be selected";
+          }
+        }
+
+        //candiate to be automatically configured
+        leaf network {
+          description "gsn location specific /29 network. It's now IP version neutral";
+          tailf:info "network in gsn";
+          type inet:ip-address;
+          mandatory true;
+        }
+        
+        // not sure what APN range should be!!!
+        leaf apn-range {
+          description "no idea";
+          tailf:info "some APN range info";
+          type string {
+            length 5..20 {
+              error-message "name of apn-range should be between 5 and 20 characters long.";
+            }
+          }
+          mandatory true;
+        }
+      }
+    }
+  }
+}
