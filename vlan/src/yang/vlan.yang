@@ -24,6 +24,7 @@ module vlan {
   }
 
   augment /ncs:services {
+
     list vlan {
       description "this is the TMLN VLAN service";
       tailf:info "vlan service for TMLN customers";
@@ -131,11 +132,17 @@ module vlan {
 
         //candiate to be automatically configured
         leaf network {
-          description "gsn location specific /29 network. It's now IP version neutral";
+          description 
+            "gsn customer location specific /29 network, globally unique so specific must xpath check 
+            It's now IP version neutral";
           tailf:info "network in gsn";
           type inet:ip-address;
           mandatory true;
-        }
+          must "count(../../../vlan[name != current()/../../name]" +
+               "/gsn-locations[*][network = current()]) = 0" {
+            error-message "customer gns network should be unique";
+          } 
+        }     
         
         // not sure what APN range should be!!!
         leaf apn-range {
