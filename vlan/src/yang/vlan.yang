@@ -30,7 +30,10 @@ module vlan {
       tailf:info "vlan service for TMLN customers";
 
       key name;
-      unique "vlan-id rd ipsec-endpoint client-network";
+      unique "vlan-id"; 
+      unique "rd"; 
+      unique "ipsec/ipsec-endpoint";
+      unique "ipsec/ipsec-network";
 
       uses ncs:service-data;
       ncs:servicepoint vlan-servicepoint;
@@ -60,32 +63,12 @@ module vlan {
           "unique route distinguisher for this customer. Format will be AS:ID
           But if we can auto generate that info, this can become RO leaf.
           Format should be AS:ID";
-        tailf:info "unique route distingusher (rd)";
+        tailf:info "unique route distinguisher(rd)";
         type string {
           pattern '(\d{1,10}:\d{1,5})' {
             error-message "rd should have format AS:ID";
           }
         }
-      }
-
-      // ro leaf candidate
-      leaf client-network {
-        description "customers /29 network. It's now IP version neutral";
-        tailf:info "unique /29 network for this customer";
-        type inet:ip-address;
-      }
-
-      leaf ipsec-endpoint {
-        description "ipsec endpoint. Also IP version neutrol so can become IPV6 in the future";
-        tailf:info "customers ipsec endpoint";
-        type inet:ip-address;
-      }
-
-      leaf ipsec-key {
-        description "ipsec key for this VPN session.";
-        tailf:info "unique ipsec key";
-        type tailf:sha-256-digest-string;
-        mandatory true;
       }
 
       leaf edge {
@@ -99,15 +82,39 @@ module vlan {
         mandatory true;
       }
 
+      container ipsec {
+        description "ipsec network and security related stuff placed in a container";
+        tailf:info "customers ipsec network information";
+        
+        leaf ipsec-endpoint {
+          description "ipsec endpoint. Also IP version neutrol so can become IPV6 in the future";
+          tailf:info "customers ipsec endpoint";
+          type inet:ip-address;
+        }
+
+        leaf ipsec-key {
+          description "ipsec key for this VPN session.";
+          tailf:info "unique ipsec key";
+          type tailf:sha-256-digest-string;
+        }
+
+        // ro leaf candidate
+        leaf ipsec-network {
+          description "customers /29 network behind ipsec tunnel endpoint";
+          tailf:info "unique /29 network for this customer";
+          type inet:ip-address;
+        }
+      }
+
       leaf-list radius {
         description "select 0 or 2 pre-defined radius servers";
-        tailf:info "provide radius servers";
+        tailf:info "provide radius servers [0..2]";
         min-elements 0;
         max-elements 2;
 
         type enumeration {
           enum radius01.tmnl.local;
-          enum radius02.tmlnl.local;
+          enum radius02.tmnl.local;
         }
       }
 
@@ -143,6 +150,7 @@ module vlan {
           must "count(../../../vlan[name != current()/../../name]" +
                "/gsn-locations[*][network = current()]) = 0" {
             error-message "customer gns network should be unique";
+            tailf:dependency ".";
           } 
         }     
         
